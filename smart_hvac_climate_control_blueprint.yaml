@@ -52,9 +52,8 @@ action:
     - '{{ -0.5 <= diff <= 0.5 }}'
     - '{{ hvac_mode != ''off'' }}'
     sequence:
-    - service: climate.turn_off
-      target:
-        entity_id: '!input climate_entity'
+    - entity_id: '!input climate_entity'
+      service: climate.turn_off
     - data:
         message: "[System OFF] Within \xB10.5\xB0C range."
         title: Climate Control
@@ -64,9 +63,8 @@ action:
     - '{{ not people_home }}'
     - '{{ hvac_mode != ''off'' }}'
     sequence:
-    - service: climate.turn_off
-      target:
-        entity_id: '!input climate_entity'
+    - entity_id: '!input climate_entity'
+      service: climate.turn_off
     - data:
         message: '[System OFF] No one is home.'
         title: Climate Control
@@ -78,16 +76,15 @@ action:
     - '{{ hvac_mode != ''off'' }}'
     sequence:
     - delay: 00:00:{{ input.door_open_delay }}
-    - service: climate.turn_off
-      target:
-        entity_id: '!input climate_entity'
+    - entity_id: '!input climate_entity'
+      service: climate.turn_off
     - data:
         message: "[System OFF] Door is open \u2014 cooling disabled."
         title: Climate Control
       service: persistent_notification.create
 blueprint:
   description: Flexible climate control with temperature thresholds, person tracking,
-    and season mode.
+    season mode, and door open logic with delay.
   domain: automation
   input:
     climate_entity:
