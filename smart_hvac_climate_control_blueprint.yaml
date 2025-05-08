@@ -1,0 +1,130 @@
+action:
+- variables:
+    current_temp: '{{ states(input.temperature_sensor) | float }}'
+    diff: '{{ current_temp - target_temp }}'
+    hvac_action: '{{ state_attr(input.climate_entity, ''hvac_action'') }}'
+    hvac_mode: '{{ state_attr(input.climate_entity, ''hvac_mode'') }}'
+    hvac_temp: '{{ state_attr(input.climate_entity, ''temperature'') | float(0) }}'
+    people_home: '{{ expand(input.person_entities) | selectattr(''state'', ''eq'',
+      ''home'') | list | count > 0 }}'
+    season: '{{ states(input.season_mode) if input.season_mode else ''Unknown'' }}'
+    target_temp: '{{ states(input.target_temperature) | float }}'
+- choose:
+  - alias: Cooling
+    conditions:
+    - '{{ input.supports_cooling }}'
+    - '{{ diff > 1 }}'
+    - '{{ people_home }}'
+    - '{{ hvac_mode != ''cool'' or hvac_action != ''cooling'' }}'
+    sequence:
+    - data:
+        entity_id: '!input climate_entity'
+        hvac_mode: cool
+        temperature: '{{ (target_temp - 2) | round(1) }}'
+      service: climate.set_temperature
+    - data:
+        message: "[Cooling ON] Target: {{ target_temp }}\xB0C | Current: {{ current_temp\
+          \ }}\xB0C"
+        title: Climate Control
+      service: persistent_notification.create
+  - alias: Heating
+    conditions:
+    - '{{ input.supports_heating }}'
+    - '{{ season == ''Winter'' }}'
+    - '{{ diff < -1 }}'
+    - '{{ people_home }}'
+    - '{{ hvac_mode != ''heat'' or hvac_temp != (target_temp + 2) | round(1) }}'
+    sequence:
+    - data:
+        entity_id: '!input climate_entity'
+        hvac_mode: heat
+        temperature: '{{ (target_temp + 2) | round(1) }}'
+      service: climate.set_temperature
+    - data:
+        message: "[Heating ON] Target: {{ target_temp }}\xB0C | Current: {{ current_temp\
+          \ }}\xB0C"
+        title: Climate Control
+      service: persistent_notification.create
+  - alias: Turn Off (In Range)
+    conditions:
+    - '{{ -0.5 <= diff <= 0.5 }}'
+    - '{{ hvac_mode != ''off'' }}'
+    sequence:
+    - service: climate.turn_off
+      target:
+        entity_id: '!input climate_entity'
+    - data:
+        message: "[System OFF] Within \xB10.5\xB0C range."
+        title: Climate Control
+      service: persistent_notification.create
+  - alias: Turn Off (No One Home)
+    conditions:
+    - '{{ not people_home }}'
+    - '{{ hvac_mode != ''off'' }}'
+    sequence:
+    - service: climate.turn_off
+      target:
+        entity_id: '!input climate_entity'
+    - data:
+        message: '[System OFF] No one is home.'
+        title: Climate Control
+      service: persistent_notification.create
+blueprint:
+  description: Flexible climate control with temperature thresholds, person tracking,
+    and season mode.
+  domain: automation
+  input:
+    climate_entity:
+      name: Climate Entity
+      selector:
+        entity:
+          domain: climate
+    person_entities:
+      name: Tracked People
+      selector:
+        entity:
+          domain: person
+          multiple: true
+    season_mode:
+      default: ''
+      name: Season Mode Input (Optional)
+      selector:
+        entity:
+          domain: input_select
+    supports_cooling:
+      default: true
+      name: Supports Cooling
+      selector:
+        boolean: {}
+    supports_heating:
+      default: true
+      name: Supports Heating
+      selector:
+        boolean: {}
+    target_temperature:
+      name: Target Temperature Input
+      selector:
+        entity:
+          domain: input_number
+    temperature_sensor:
+      name: Temperature Sensor
+      selector:
+        entity:
+          domain: sensor
+  name: Smart HVAC Climate Control
+condition: []
+trigger:
+- entity_id: '!input temperature_sensor'
+  platform: state
+- entity_id: '!input target_temperature'
+  platform: state
+- entity_id: '!input season_mode'
+  platform: state
+- entity_id: '!input person_entities'
+  platform: state
+  to: home
+- entity_id: '!input person_entities'
+  platform: state
+  to: not_home
+- event: start
+  platform: homeassistant
