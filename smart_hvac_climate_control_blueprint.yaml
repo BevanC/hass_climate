@@ -16,6 +16,8 @@ action:
     - '{{ diff > 1 }}'
     - '{{ people_home }}'
     - '{{ hvac_mode != ''cool'' or hvac_action != ''cooling'' }}'
+    - '{{ not is_state(input.door_sensor_entity, ''on'') if input.door_sensor_entity
+      else true }}'
     sequence:
     - data:
         entity_id: '!input climate_entity'
@@ -69,6 +71,19 @@ action:
         message: '[System OFF] No one is home.'
         title: Climate Control
       service: persistent_notification.create
+  - alias: Turn Off (Door Open)
+    conditions:
+    - '{{ input.door_sensor_entity != '''' }}'
+    - '{{ is_state(input.door_sensor_entity, ''on'') }}'
+    - '{{ hvac_mode != ''off'' }}'
+    sequence:
+    - service: climate.turn_off
+      target:
+        entity_id: '!input climate_entity'
+    - data:
+        message: "[System OFF] Door is open \u2014 cooling disabled."
+        title: Climate Control
+      service: persistent_notification.create
 blueprint:
   description: Flexible climate control with temperature thresholds, person tracking,
     and season mode.
@@ -79,6 +94,12 @@ blueprint:
       selector:
         entity:
           domain: climate
+    door_sensor_entity:
+      default: ''
+      name: Door Sensor (Optional)
+      selector:
+        entity:
+          domain: binary_sensor
     person_entities:
       name: Tracked People
       selector:
