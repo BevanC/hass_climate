@@ -77,6 +77,7 @@ action:
     - '{{ is_state(input.door_sensor_entity, ''on'') }}'
     - '{{ hvac_mode != ''off'' }}'
     sequence:
+    - delay: 00:00:{{ input.door_open_delay }}
     - service: climate.turn_off
       target:
         entity_id: '!input climate_entity'
@@ -94,6 +95,14 @@ blueprint:
       selector:
         entity:
           domain: climate
+    door_open_delay:
+      default: 0
+      name: Delay before turning off when door is open (seconds)
+      selector:
+        number:
+          max: 300
+          min: 0
+          unit_of_measurement: seconds
     door_sensor_entity:
       default: ''
       name: Door Sensor (Optional)
